@@ -1,0 +1,215 @@
+<title>Akij Turnover Dashboard</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: KPI strip, then ranked turnover bars beside the 7-month trend, then headcount vs approved, then the unit table. Single blue for magnitude, burnt orange only for units above the group rate. */
+:root{
+  --bg:#F3F5F8; --surface:#FFFFFF; --ink:#141A23; --muted:#5A6577; --line:#DFE3EA;
+  --bar:#3D5F94; --hot:#B9501A; --good:#2B7A57; --track:#E9EDF3;
+  --display:"Barlow Semi Condensed","Arial Narrow",sans-serif;
+  --body:"IBM Plex Sans",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0E1218; --surface:#161C25; --ink:#E7EAF0; --muted:#9AA4B4; --line:#283040;
+  --bar:#7F9FD0; --hot:#EC8F55; --good:#5BC08F; --track:#222A37; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0E1218; --surface:#161C25; --ink:#E7EAF0; --muted:#9AA4B4; --line:#283040;
+  --bar:#7F9FD0; --hot:#EC8F55; --good:#5BC08F; --track:#222A37; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:14px;line-height:1.45;
+  padding-block:24px 40px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1120px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+header{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:8px 24px}
+h1{font:600 30px/1.1 var(--display);margin:0;letter-spacing:.01em;text-wrap:balance}
+.sub{color:var(--muted);font-size:13px;margin-top:4px}
+.stamp{font:12px var(--mono);color:var(--muted)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:14px 16px;min-width:0}
+.kpi .l{font:600 11px var(--body);text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.kpi .v{font:600 34px/1.1 var(--display);margin-top:6px;font-variant-numeric:tabular-nums}
+.kpi .d{font-size:12px;color:var(--muted);margin-top:4px}
+.up{color:var(--hot)} .dn{color:var(--good)}
+.reads{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:14px 16px;display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px 28px}
+.reads p{margin:0;min-width:0}
+.reads b{font:600 15px var(--display);display:block;letter-spacing:.02em;margin-bottom:2px}
+.grid{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:16px}
+@media (max-width:820px){.grid{grid-template-columns:minmax(0,1fr)}}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:16px;min-width:0}
+.card h2{font:600 18px var(--display);margin:0;letter-spacing:.02em}
+.card .note{color:var(--muted);font-size:12px;margin:2px 0 12px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:5px;overflow:hidden;margin-bottom:12px}
+.seg button{font:500 12px var(--body);background:transparent;color:var(--muted);border:0;padding:6px 12px;cursor:pointer}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--surface)}
+button:focus-visible{outline:2px solid var(--bar);outline-offset:2px}
+.row{display:grid;grid-template-columns:112px minmax(0,1fr) 92px;align-items:center;gap:10px;padding:4px 0}
+.row .n{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.track{position:relative;height:14px;background:var(--track);border-radius:2px}
+.fill{height:100%;background:var(--bar);border-radius:2px 4px 4px 2px;min-width:2px}
+.fill.hot{background:var(--hot)}
+.avg{position:absolute;top:-3px;bottom:-3px;width:0;border-left:2px dashed var(--ink);opacity:.55}
+.row .val{font:13px var(--mono);text-align:right;font-variant-numeric:tabular-nums}
+.row .val i{font-style:normal;color:var(--muted)}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:12px;color:var(--muted);margin-top:10px}
+.sw{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:-1px}
+.dash{display:inline-block;width:14px;border-top:2px dashed var(--ink);opacity:.55;margin-right:6px;vertical-align:3px}
+.tablewrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:720px;font-variant-numeric:tabular-nums}
+th,td{padding:7px 10px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+th{font:600 11px var(--body);text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+td.mono{font-family:var(--mono);font-size:13px}
+tfoot td{font-weight:600;border-bottom:0;border-top:2px solid var(--line)}
+.pill{display:inline-block;font:600 11px var(--body);padding:2px 8px;border-radius:10px;border:1px solid var(--hot);color:var(--hot)}
+.foot{font-size:12px;color:var(--muted);display:flex;flex-direction:column;gap:4px}
+#tip{position:fixed;z-index:9;pointer-events:none;background:var(--ink);color:var(--surface);font-size:12px;padding:6px 9px;border-radius:4px;max-width:240px;display:none;line-height:1.4}
+svg text{fill:var(--muted);font:11px var(--mono)}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Factory Turnover, September 2026</h1>
+      <div class="sub">15 factory units, Akij Group. Monthly turnover = leavers ÷ average of opening and closing headcount.</div>
+    </div>
+    <div class="stamp">Source: Turnover rate-Factory wise 2026, sheet Sep'26</div>
+  </header>
+
+  <section class="kpis" id="kpis"></section>
+  <section class="reads" id="reads"></section>
+
+  <section class="grid">
+    <div class="card">
+      <h2>Turnover rate by unit</h2>
+      <div class="note">September rate, with leavers in brackets.</div>
+      <div class="seg" role="group" aria-label="Sort units">
+        <button data-s="rate" aria-pressed="true">By rate</button>
+        <button data-s="left" aria-pressed="false">By leavers</button>
+        <button data-s="name" aria-pressed="false">By sheet order</button>
+      </div>
+      <div id="rate"></div>
+      <div class="legend">
+        <span><span class="sw" style="background:var(--hot)"></span>Above group rate</span>
+        <span><span class="sw" style="background:var(--bar)"></span>At or below group rate</span>
+        <span><span class="dash"></span>Group rate <span id="grp"></span></span>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Group turnover, Mar to Sep</h2>
+      <div class="note">Monthly overall rate from each month's sheet. Dec to Feb are left out because their overall rows are not monthly rates.</div>
+      <div id="trend"></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Headcount against approved manpower</h2>
+    <div class="note">Closing headcount as a share of approved positions. Lowest fill first.</div>
+    <div id="fillc"></div>
+  </section>
+
+  <section class="card">
+    <h2>Unit detail</h2>
+    <div class="note">Change vs Aug is in percentage points. Flag marks units above the group rate.</div>
+    <div class="tablewrap"><table id="tbl"></table></div>
+  </section>
+
+  <div class="foot">
+    <span>ASLL is not in the Sep'26 sheet, so it is not included. Totals match the sheet's Overall row: 3,783 opening, 3,845 closing, 115 leavers.</span>
+    <span>ABSL's sheet shows 3.25%. Applying the formula to 3 leavers on 110 opening and 107 closing gives 2.76%, which is used here. All other unit rates match the sheet.</span>
+    <span>For FAL, AEL Mustard Oil and ARMCL-3 the Aug rate is taken from the August sheet, because the Sep sheet leaves it blank or shows a different value.</span>
+    <span>Reported new-joiner counts in the Sep'26 remarks do not reconcile to the headcount movement, so they are not shown.</span>
+  </div>
+</div>
+<div id="tip"></div>
+
+<script>
+var D=[["ACCL",690,672,679,12,1.35],["APFIL",501,464,464,9,2.60],["ABSL",111,110,107,3,0.90],["Hashem Rice Mills",167,165,165,0,1.23],["FAL",83,79,72,7,1.29],["AEL Mustard Oil",36,30,32,0,0.00],["AIL",666,599,603,7,1.83],["AEL Amirabad",276,242,238,6,3.33],["AAFL",299,220,228,8,10.22],["ALEL",815,463,483,36,6.88],["ARMCL-1",382,337,340,11,3.88],["ARMCL-2",63,58,59,4,0.00],["ARMCL-3",229,157,183,9,2.56],["ARMCL-4",149,119,123,2,1.70],["ARMCL-5",92,68,69,1,0.00]]
+.map(function(r,i){return {i:i,n:r[0],ap:r[1],b:r[2],e:r[3],l:r[4],aug:r[5],r:r[4]/((r[2]+r[3])/2)*100,fill:r[3]/r[1]*100};});
+var T=D.reduce(function(a,r){a.ap+=r.ap;a.b+=r.b;a.e+=r.e;a.l+=r.l;return a;},{ap:0,b:0,e:0,l:0});
+var G=T.l/((T.b+T.e)/2)*100, AUG=3.13;
+var f1=function(x){return x.toFixed(1)}, f2=function(x){return x.toFixed(2)}, nf=function(x){return x.toLocaleString("en-US")};
+var tip=document.getElementById("tip");
+function bindTips(root){
+  root.querySelectorAll("[data-tip]").forEach(function(el){
+    el.addEventListener("mousemove",function(e){tip.style.display="block";tip.innerHTML=el.getAttribute("data-tip");
+      tip.style.left=Math.min(e.clientX+14,window.innerWidth-250)+"px";tip.style.top=(e.clientY+14)+"px";});
+    el.addEventListener("mouseleave",function(){tip.style.display="none";});
+  });
+}
+function kpis(){
+  var net=T.e-T.b, dr=G-AUG;
+  var items=[
+    ["Closing headcount",nf(T.e),'<span class="dn">+'+net+'</span> vs opening '+nf(T.b)],
+    ["Leavers",String(T.l),"across 15 units"],
+    ["Group turnover",f2(G)+"%",'<span class="dn">'+f2(dr)+' pts</span> vs Aug ('+f2(AUG)+"%)"],
+    ["Approved manpower filled",f1(T.e/T.ap*100)+"%",nf(T.ap-T.e)+" open of "+nf(T.ap)+" approved"]
+  ];
+  document.getElementById("kpis").innerHTML=items.map(function(k){return '<div class="kpi"><div class="l">'+k[0]+'</div><div class="v">'+k[1]+'</div><div class="d">'+k[2]+'</div></div>';}).join("");
+}
+function reads(){
+  var top=D.slice().sort(function(a,b){return b.r-a.r;})[0];
+  var al=D.filter(function(d){return d.n==="ALEL";})[0];
+  var hi=D.filter(function(d){return d.r>G;}).length;
+  var h=[
+    ["Highest rate: "+top.n+" "+f2(top.r)+"%",top.l+" leavers from an average of "+f1((top.b+top.e)/2)+" people. Small base, so one or two exits move it."],
+    ["Largest volume: ALEL, "+al.l+" leavers","That is "+f1(al.l/T.l*100)+"% of all group leavers at "+f2(al.r)+"%, up from "+f2(al.aug)+"% in Aug. Closing headcount is "+al.e+" against "+al.ap+" approved."],
+    [hi+" of 15 units above the group rate","FAL, ALEL, ARMCL-2, ARMCL-3, AAFL and ARMCL-1 are above "+f2(G)+"%. AAFL improved sharply from 10.22% in Aug."]
+  ];
+  document.getElementById("reads").innerHTML=h.map(function(x){return "<p><b>"+x[0]+"</b>"+x[1]+"</p>";}).join("");
+}
+function rateChart(mode){
+  var rows=D.slice();
+  if(mode==="rate")rows.sort(function(a,b){return b.r-a.r;});
+  if(mode==="left")rows.sort(function(a,b){return b.l-a.l||b.r-a.r;});
+  var max=10, el=document.getElementById("rate");
+  el.innerHTML=rows.map(function(d){
+    var tipTxt="<b>"+d.n+"</b><br>Rate "+f2(d.r)+"% (Aug "+f2(d.aug)+"%)<br>Leavers "+d.l+"<br>Headcount "+d.b+" to "+d.e;
+    return '<div class="row" data-tip="'+tipTxt+'"><div class="n">'+d.n+'</div><div class="track"><div class="fill'+(d.r>G?" hot":"")+'" style="width:'+Math.min(d.r/max*100,100)+'%"></div><div class="avg" style="left:'+(G/max*100)+'%"></div></div><div class="val">'+f2(d.r)+'% <i>('+d.l+')</i></div></div>';
+  }).join("");
+  document.getElementById("grp").textContent=f2(G)+"%";
+  bindTips(el);
+}
+function fillChart(){
+  var rows=D.slice().sort(function(a,b){return a.fill-b.fill;}), el=document.getElementById("fillc");
+  el.innerHTML=rows.map(function(d){
+    var tipTxt="<b>"+d.n+"</b><br>Closing "+d.e+" of "+d.ap+" approved<br>Open positions "+(d.ap-d.e);
+    return '<div class="row" data-tip="'+tipTxt+'"><div class="n">'+d.n+'</div><div class="track"><div class="fill" style="width:'+d.fill+'%"></div></div><div class="val">'+f1(d.fill)+'% <i>('+d.e+'/'+d.ap+')</i></div></div>';
+  }).join("");
+  bindTips(el);
+}
+function trend(){
+  var P=[["Mar",1.74],["Apr",4.49],["May",1.92],["Jun",3.26],["Jul",2.85],["Aug",3.13],["Sep",G]];
+  var W=560,H=230,l=34,r=22,t=20,b=28,ymax=5;
+  var x=function(i){return l+i*(W-l-r)/(P.length-1);}, y=function(v){return t+(1-v/ymax)*(H-t-b);};
+  var s='<svg viewBox="0 0 '+W+' '+H+'" width="100%" role="img" aria-label="Group monthly turnover rate, March to September 2026">';
+  for(var k=0;k<=ymax;k++){s+='<line x1="'+l+'" x2="'+(W-r)+'" y1="'+y(k)+'" y2="'+y(k)+'" stroke="var(--line)" stroke-width="1"/><text x="'+(l-6)+'" y="'+(y(k)+4)+'" text-anchor="end">'+k+'%</text>';}
+  var pts=P.map(function(p,i){return x(i)+","+y(p[1]);}).join(" ");
+  s+='<polygon points="'+l+','+y(0)+' '+pts+' '+x(P.length-1)+','+y(0)+'" fill="var(--bar)" opacity=".12"/>';
+  s+='<polyline points="'+pts+'" fill="none" stroke="var(--bar)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>';
+  P.forEach(function(p,i){
+    var last=i===P.length-1;
+    s+='<text x="'+x(i)+'" y="'+(H-8)+'" text-anchor="middle">'+p[0]+'</text>';
+    s+='<circle cx="'+x(i)+'" cy="'+y(p[1])+'" r="'+(last?5:4)+'" fill="'+(last?"var(--bar)":"var(--surface)")+'" stroke="var(--bar)" stroke-width="2" data-tip="<b>'+p[0]+"</b><br>"+f2(p[1])+'% overall"/>';
+    s+='<text x="'+x(i)+'" y="'+(y(p[1])-10)+'" text-anchor="middle" style="fill:var(--ink)">'+f2(p[1])+'</text>';
+  });
+  s+="</svg>";
+  var el=document.getElementById("trend");el.innerHTML=s;bindTips(el);
+}
+function table(){
+  var h='<thead><tr><th>Unit</th><th>Approved</th><th>Opening</th><th>Closing</th><th>Net</th><th>Leavers</th><th>Rate</th><th>Aug rate</th><th>Change</th><th>Flag</th></tr></thead><tbody>';
+  D.forEach(function(d){
+    var net=d.e-d.b, ch=d.r-d.aug;
+    h+="<tr><td>"+d.n+'</td><td class="mono">'+d.ap+'</td><td class="mono">'+d.b+'</td><td class="mono">'+d.e+'</td><td class="mono">'+(net>0?"+":"")+net+'</td><td class="mono">'+d.l+'</td><td class="mono">'+f2(d.r)+'%</td><td class="mono">'+f2(d.aug)+'%</td><td class="mono '+(ch>0.005?"up":ch<-0.005?"dn":"")+'">'+(ch>0?"+":"")+f2(ch)+'</td><td>'+(d.r>G?'<span class="pill">Above group</span>':"")+"</td></tr>";
+  });
+  h+='</tbody><tfoot><tr><td>Group</td><td class="mono">'+T.ap+'</td><td class="mono">'+T.b+'</td><td class="mono">'+T.e+'</td><td class="mono">+'+(T.e-T.b)+'</td><td class="mono">'+T.l+'</td><td class="mono">'+f2(G)+'%</td><td class="mono">'+f2(AUG)+'%</td><td class="mono dn">'+f2(G-AUG)+"</td><td></td></tr></tfoot>";
+  document.getElementById("tbl").innerHTML=h;
+}
+kpis();reads();rateChart("rate");fillChart();trend();table();
+document.querySelectorAll(".seg button").forEach(function(btn){
+  btn.addEventListener("click",function(){
+    document.querySelectorAll(".seg button").forEach(function(x){x.setAttribute("aria-pressed",x===btn?"true":"false");});
+    rateChart(btn.getAttribute("data-s"));
+  });
+});
+</script>
